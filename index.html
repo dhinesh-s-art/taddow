@@ -18,7 +18,6 @@
       <div class="actions">
         <button id="adminLoginBtn" class="btn btn-outline">Admin Login</button>
         <span class="pill" id="pinterestStatus">Pinterest: Not Connected</span>
-        <span class="pill real-time-updates" id="realtimeStatus" title="Real-time sync enabled">🔴 Live</span>
       </div>
     </header>
 
@@ -42,18 +41,6 @@
       </div>
     </section>
 
-    <section id="notificationsArea" class="card hidden"></section>
-
-    <section id="subscriptionSection" class="card">
-      <h2>📬 Get Updates</h2>
-      <p>Subscribe to receive notifications when new products are added!</p>
-      <form id="subscriptionForm" class="form-grid">
-        <input type="email" id="subscriberEmail" placeholder="Enter your email" required />
-        <button type="submit" class="btn">Subscribe</button>
-      </form>
-      <p id="subscriptionStatus" style="font-size: 0.9rem; color: #7a5138;"></p>
-    </section>
-
     <section class="control-panel">
       <label class="search-wrap">
         <span>Search products</span>
@@ -64,15 +51,6 @@
     <main>
       <section id="settingsBox" class="card hidden"></section>
       <section id="adminPanel" class="card hidden"></section>
-      <section id="analyticsPanel" class="card hidden">
-        <h3>Admin Analytics Dashboard</h3>
-        <p>Audience Engagement Metrics:</p>
-        <div>
-          <p>Likes: <span id="likesCount">0</span></p>
-          <p>Wishlist Count: <span id="wishlistCount">0</span></p>
-          <p>Ratings: <span id="ratingsCount">0</span></p>
-        </div>
-      </section>
 
       <section>
         <h2>Best Seller Pins</h2>
