@@ -1,0 +1,13 @@
+{
+  "isAdmin": false,
+  "settings": {
+    "siteName": "Best Sellers",
+    "pinterestConnected": false,
+    "pinterestAccount": "",
+    "intro": "Handpicked best seller products pinned on Pinterest from Amazon, Flipkart, Meesho, and similar platforms."
+  },
+  "products": [],
+  "reactions": {},
+  "subscribers": [],
+  "activity": []
+}
