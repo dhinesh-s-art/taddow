@@ -2,5 +2,9 @@
   "name": "best-sellers",
   "version": "1.0.0",
   "private": true,
+  "description": "Static Best Sellers showcase site with Pinterest references",
+  "scripts": {
+    "start": "node server.js"
+  }
   "description": "Static Best Sellers showcase site with Pinterest references"
 }

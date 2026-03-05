@@ -1,4 +1,7 @@
 const ADMIN = { username: "Claux", password: "13579@clauxx" };
+const STORAGE_KEY = "best-sellers-local-cache-v1";
+const API_STATE = "/api/state";
+const API_STREAM = "/api/stream";
 const STORAGE_KEY = "best-sellers-data-v3";
 const SYNC_KEY = "best-sellers-sync-event";
 
@@ -8,6 +11,24 @@ const now = () => new Date().toISOString();
 
 const initialState = {
   isAdmin: false,
+  settings: {
+    siteName: "Best Sellers",
+    pinterestConnected: false,
+    pinterestAccount: "",
+    intro: "Handpicked best seller products pinned on Pinterest from Amazon, Flipkart, Meesho, and similar platforms."
+  },
+  products: [
+    {
+      id: makeId(),
+      title: "Smart Kitchen Organizer",
+      description: "Popular storage solution seen in home improvement collections.",
+      platform: "Amazon",
+      tags: "kitchen,home,best seller",
+      imageUrl: "https://images.unsplash.com/photo-1584269600519-112d071b4bc7?auto=format&fit=crop&w=900&q=60",
+      siteUrl: "https://www.amazon.in",
+      pinterestUrl: "https://www.pinterest.com",
+      createdAt: now()
+    }
   settings: { siteName: "Best Sellers", pinterestConnected: false, pinterestAccount: "", intro: "Handpicked best seller products pinned on Pinterest from Amazon, Flipkart, Meesho, and similar platforms." },
   products: [
     { id: makeId(), title: "Smart Kitchen Organizer", description: "Popular storage solution seen in home improvement collections.", platform: "Amazon", tags: "kitchen,home,best seller", imageUrl: "https://images.unsplash.com/photo-1584269600519-112d071b4bc7?auto=format&fit=crop&w=900&q=60", siteUrl: "https://www.amazon.in", pinterestUrl: "https://www.pinterest.com", createdAt: now() }
@@ -17,6 +38,8 @@ const initialState = {
   activity: []
 };
 
+let state = loadLocalCache();
+let syncing = false;
 let state = loadState();
 const broadcast = "BroadcastChannel" in window ? new BroadcastChannel("best-sellers-live") : null;
 
@@ -63,6 +86,7 @@ el.adminLoginForm.addEventListener("submit", (e) => {
 el.searchInput.addEventListener("input", renderProducts);
 el.subscribeForm.addEventListener("submit", handleSubscribe);
 
+function loadLocalCache() {
 if (broadcast) {
   broadcast.onmessage = () => {
     state = loadState();
@@ -86,6 +110,7 @@ function loadState() {
       ...initialState,
       ...raw,
       settings: { ...initialState.settings, ...(raw.settings || {}) },
+      products: Array.isArray(raw.products) && raw.products.length ? raw.products : structuredClone(initialState.products),
       products: Array.isArray(raw.products) ? raw.products : structuredClone(initialState.products),
       reactions: raw.reactions && typeof raw.reactions === "object" ? raw.reactions : {},
       subscribers: Array.isArray(raw.subscribers) ? raw.subscribers : [],
@@ -96,6 +121,67 @@ function loadState() {
   }
 }
 
+function saveLocalCache() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, isAdmin: state.isAdmin }));
+}
+
+async function loadRemoteState() {
+  try {
+    const res = await fetch(API_STATE, { cache: "no-store" });
+    if (!res.ok) throw new Error("Unable to load shared state");
+    const data = await res.json();
+    if (!data?.state) return;
+    const adminFlag = state.isAdmin;
+    state = {
+      ...initialState,
+      ...data.state,
+      isAdmin: adminFlag,
+      settings: { ...initialState.settings, ...(data.state.settings || {}) },
+      products: Array.isArray(data.state.products) && data.state.products.length ? data.state.products : structuredClone(initialState.products),
+      reactions: data.state.reactions && typeof data.state.reactions === "object" ? data.state.reactions : {},
+      subscribers: Array.isArray(data.state.subscribers) ? data.state.subscribers : [],
+      activity: Array.isArray(data.state.activity) ? data.state.activity.slice(0, 100) : []
+    };
+    saveLocalCache();
+    render();
+    checkNewProductNotification();
+  } catch {
+    render();
+  }
+}
+
+async function persist(eventType = "update", payload = {}) {
+  saveLocalCache();
+  if (syncing) return;
+  syncing = true;
+  try {
+    const outgoing = { ...state, isAdmin: false };
+    await fetch(API_STATE, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ state: outgoing, eventType, payload })
+    });
+  } catch {
+    // keep local cache as fallback
+  } finally {
+    syncing = false;
+  }
+}
+
+function connectLiveUpdates() {
+  try {
+    const stream = new EventSource(API_STREAM);
+    stream.addEventListener("state-updated", () => loadRemoteState());
+    stream.addEventListener("product-added", () => loadRemoteState());
+    stream.addEventListener("product-updated", () => loadRemoteState());
+    stream.addEventListener("product-deleted", () => loadRemoteState());
+    stream.onerror = () => {
+      setTimeout(connectLiveUpdates, 2000);
+      stream.close();
+    };
+  } catch {
+    setInterval(loadRemoteState, 4000);
+  }
 function persist(eventType = "update", payload = {}) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   const syncEvent = { eventType, payload, at: now() };
@@ -347,6 +433,9 @@ function render() {
 }
 
 render();
+loadRemoteState();
+connectLiveUpdates();
+checkNewProductNotification();
 checkNewProductNotification();
 // Real-time update system using WebSocket-like polling
 let connectionStatus = 'disconnected';
