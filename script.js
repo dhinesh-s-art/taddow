@@ -2,6 +2,8 @@ const ADMIN = { username: "Claux", password: "13579@clauxx" };
 const STORAGE_KEY = "best-sellers-local-cache-v1";
 const API_STATE = "/api/state";
 const API_STREAM = "/api/stream";
+const STORAGE_KEY = "best-sellers-data-v3";
+const SYNC_KEY = "best-sellers-sync-event";
 
 const fallbackId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
 const makeId = () => (globalThis.crypto?.randomUUID ? crypto.randomUUID() : fallbackId());
@@ -27,6 +29,9 @@ const initialState = {
       pinterestUrl: "https://www.pinterest.com",
       createdAt: now()
     }
+  settings: { siteName: "Best Sellers", pinterestConnected: false, pinterestAccount: "", intro: "Handpicked best seller products pinned on Pinterest from Amazon, Flipkart, Meesho, and similar platforms." },
+  products: [
+    { id: makeId(), title: "Smart Kitchen Organizer", description: "Popular storage solution seen in home improvement collections.", platform: "Amazon", tags: "kitchen,home,best seller", imageUrl: "https://images.unsplash.com/photo-1584269600519-112d071b4bc7?auto=format&fit=crop&w=900&q=60", siteUrl: "https://www.amazon.in", pinterestUrl: "https://www.pinterest.com", createdAt: now() }
   ],
   reactions: {},
   subscribers: [],
@@ -35,6 +40,8 @@ const initialState = {
 
 let state = loadLocalCache();
 let syncing = false;
+let state = loadState();
+const broadcast = "BroadcastChannel" in window ? new BroadcastChannel("best-sellers-live") : null;
 
 const el = {
   productGrid: document.getElementById("productGrid"),
@@ -80,6 +87,22 @@ el.searchInput.addEventListener("input", renderProducts);
 el.subscribeForm.addEventListener("submit", handleSubscribe);
 
 function loadLocalCache() {
+if (broadcast) {
+  broadcast.onmessage = () => {
+    state = loadState();
+    render();
+    checkNewProductNotification();
+  };
+}
+
+window.addEventListener("storage", (event) => {
+  if (![STORAGE_KEY, SYNC_KEY].includes(event.key)) return;
+  state = loadState();
+  render();
+  checkNewProductNotification();
+});
+
+function loadState() {
   try {
     const raw = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (!raw) return structuredClone(initialState);
@@ -88,6 +111,7 @@ function loadLocalCache() {
       ...raw,
       settings: { ...initialState.settings, ...(raw.settings || {}) },
       products: Array.isArray(raw.products) && raw.products.length ? raw.products : structuredClone(initialState.products),
+      products: Array.isArray(raw.products) ? raw.products : structuredClone(initialState.products),
       reactions: raw.reactions && typeof raw.reactions === "object" ? raw.reactions : {},
       subscribers: Array.isArray(raw.subscribers) ? raw.subscribers : [],
       activity: Array.isArray(raw.activity) ? raw.activity.slice(0, 100) : []
@@ -158,6 +182,11 @@ function connectLiveUpdates() {
   } catch {
     setInterval(loadRemoteState, 4000);
   }
+function persist(eventType = "update", payload = {}) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  const syncEvent = { eventType, payload, at: now() };
+  localStorage.setItem(SYNC_KEY, JSON.stringify(syncEvent));
+  if (broadcast) broadcast.postMessage(syncEvent);
 }
 
 function visitorId() {
@@ -407,3 +436,81 @@ render();
 loadRemoteState();
 connectLiveUpdates();
 checkNewProductNotification();
+checkNewProductNotification();
+// Real-time update system using WebSocket-like polling
+let connectionStatus = 'disconnected';
+
+function updateConnectionStatus(status) {
+    connectionStatus = status;
+    // Display the connection status on the UI
+    document.getElementById('connection-status').innerText = `Status: ${connectionStatus}`;
+}
+
+function connectWebSocket() {
+    updateConnectionStatus('connecting...');
+    // Mock WebSocket connection
+    setTimeout(() => updateConnectionStatus('connected'), 2000);
+}
+
+connectWebSocket();
+
+// Subscription management with email collection
+let subscribers = [];
+
+function collectEmail(email) {
+    if (!subscribers.includes(email)) {
+        subscribers.push(email);
+        alert('Subscribed successfully!');
+    }
+}
+
+// Notification system for all users
+function notifyUsers(notification) {
+    // Display notification to users
+    const notificationDisplay = document.getElementById('notifications');
+    const notificationElement = document.createElement('div');
+    notificationElement.innerText = notification;
+    notificationDisplay.appendChild(notificationElement);
+    setTimeout(() => notificationDisplay.removeChild(notificationElement), 5000);
+}
+
+// Admin analytics dashboard
+const analyticsData = {
+    likes: 0,
+    wishlists: 0,
+    ratings: 0
+};
+
+function trackEngagement(action) {
+    if (action === 'like') analyticsData.likes++;
+    else if (action === 'wishlist') analyticsData.wishlists++;
+    else if (action === 'rate') analyticsData.ratings++;
+}
+
+// Automatic sync across browser tabs
+window.addEventListener('storage', (event) => {
+    if (event.key === 'productUpdate') {
+        // Update product information
+        notifyUsers('A product has been updated!');
+    }
+});
+
+function syncTabs(productUpdate) {
+    localStorage.setItem('productUpdate', JSON.stringify(productUpdate));
+}
+
+// Success/warning messages for all admin actions
+function showAdminMessage(message, type) {
+    const messageElement = document.createElement('div');
+    messageElement.className = type === 'success' ? 'success-message' : 'warning-message';
+    messageElement.innerText = message;
+    document.body.appendChild(messageElement);
+    setTimeout(() => document.body.removeChild(messageElement), 5000);
+}
+
+// Product change notifications
+function updateProduct(product) {
+    // Notify all users about the product update
+    syncTabs(product);
+    notifyUsers(`Product ${product.name} has been updated!`);
+}

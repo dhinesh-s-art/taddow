@@ -6,4 +6,5 @@
   "scripts": {
     "start": "node server.js"
   }
+  "description": "Static Best Sellers showcase site with Pinterest references"
 }
